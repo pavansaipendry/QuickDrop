@@ -11,9 +11,9 @@ I built this because I was tired of emailing files to myself or uploading stuff 
 | Method | Best For | Speed | Setup Time |
 |--------|----------|-------|------------|
 | [WiFi Transfer](#method-1-wifi-transfer) | Quick transfers, small-medium files | 5-30 MB/s | 2 minutes |
-| [USB Transfer](#method-2-usb-transfer) | Large files, movies, bulk transfers | 30-60 MB/s | 5 minutes |
+| [USB Transfer](#method-2-usb-transfer) | Large files, videos, bulk transfers | 30-60 MB/s | 5 minutes |
 
-Pick whichever suits your situation. I usually use WiFi for quick stuff and USB when I'm moving movies or large folders.
+Pick whichever suits your situation. I usually use WiFi for quick stuff and USB when I'm moving large videos or folders.
 
 ---
 

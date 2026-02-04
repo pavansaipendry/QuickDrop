@@ -34,28 +34,28 @@ Simple enough. I got it working in about an hour. Then the bugs started.
 
 ### What happened
 
-Small files downloaded fine. Images worked. But when I tried to download a movie file, the browser showed "File not found" even though the file was sitting right there in the folder.
+Small files downloaded fine. Images worked. But when I tried to download a large video file, the browser showed "File not found" even though the file was sitting right there in the folder.
 
 ### The filename
 
 ```
-Chernobyl S01E01 1080p 10bit SDR BluRay x265 HEVC Hindi .mkv
+Family Vacation 2024 (Beach Trip).mp4
 ```
 
-See the problem? Spaces. Parentheses in other files. Special characters everywhere.
+See the problem? Spaces. Parentheses. Special characters.
 
 ### What went wrong
 
 My download route was using Flask's `secure_filename()` function, which sanitizes filenames by removing special characters. So when someone clicked download, the URL would be:
 
 ```
-/download/Chernobyl S01E01 1080p...mkv
+/download/Family Vacation 2024 (Beach Trip).mp4
 ```
 
 But the server was looking for:
 
 ```
-Chernobyl_S01E01_1080p...mkv
+Family_Vacation_2024_Beach_Trip.mp4
 ```
 
 The file didn't exist because `secure_filename()` was mangling the name.
@@ -92,7 +92,7 @@ I also had to URL-encode the filename in the HTML template:
 
 ### What happened
 
-I tried downloading a 2GB movie. The browser said "1 hour remaining."
+I tried downloading a 2GB file. The browser said "1 hour remaining."
 
 Over WiFi. On the same network. That's about 0.5 MB/s. My WiFi router can do 100 MB/s. Something was very wrong.
 
@@ -144,7 +144,7 @@ ADB (Android Debug Bridge) is a command-line tool that lets you talk to Android 
 
 ```bash
 # Send file to phone
-adb push movie.mkv /sdcard/Download/
+adb push video.mkv /sdcard/Download/
 
 # Pull file from phone
 adb pull /sdcard/DCIM/Camera/photo.jpg ~/Desktop/
@@ -170,7 +170,7 @@ It's a one-time setup, but it's definitely more involved than the WiFi approach.
 
 ### What happened
 
-I transferred a 2GB movie over USB. Transfer completed successfully. Opened it on my phone. "Can't play video."
+I transferred a 2GB file over USB. Transfer completed successfully. Opened it on my phone. "Can't play video."
 
 Tried different video player apps. Same error.
 
@@ -283,7 +283,7 @@ Mac (Terminal)                         Phone (ADB daemon)
 
 4. **WiFi speeds vary wildly.** 5GHz vs 2.4GHz makes a huge difference. Distance from router matters. Other devices on the network matter.
 
-5. **USB is king for large files.** ADB over USB-C consistently hits 30-60 MB/s. If you're transferring movies or backups, use the cable.
+5. **USB is king for large files.** ADB over USB-C consistently hits 30-60 MB/s. If you're transferring videos or backups, use the cable.
 
 6. **Codec issues look like transfer failures.** If a video won't play, it might not be corrupt. Check if your player supports the format.
 
@@ -318,7 +318,7 @@ But honestly, it works for my use case. Sometimes "good enough" is good enough.
 
 ## Final Thoughts
 
-This started because I wanted to watch a movie on a flight and didn't want to pay for MacDroid or wait for Google Drive to upload 3GB.
+This started because I wanted to watch a video on a flight and didn't want to pay for MacDroid or wait for Google Drive to upload 3GB.
 
 It turned into a weekend project that taught me more about HTTP streaming, browser memory limits, and USB protocols than I expected.
 
