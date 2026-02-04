@@ -1,6 +1,6 @@
 # QuickDrop
 
-![QuickDrop Diagram](diagram.svg)
+![QuickDrop Diagram](diagram.png)
 
 A simple, no-nonsense way to transfer files between your Mac and Android phone. No cloud uploads, no account signups, no app installations (mostly). Just your devices talking directly to each other.
 
