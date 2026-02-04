@@ -97,6 +97,7 @@ Either scan the QR code with your camera, or just type that URL into Chrome on y
 **Sending files from Android to Mac:**
 - Tap "Select Files" or drag-and-drop onto the upload zone
 - Files land in `~/Downloads/PhoneTransfer` on your Mac
+- Large files (1GB+) are automatically chunked for reliable uploads
 
 **Sending files from Mac to Android:**
 - Drop files into `~/Downloads/PhoneTransfer` on your Mac
@@ -118,6 +119,11 @@ Either scan the QR code with your camera, or just type that URL into Chrome on y
 **File not found errors on download?**
 - This can happen with filenames that have special characters
 - Try renaming the file to something simpler (no parentheses, brackets, etc.)
+
+**Large uploads failing?**
+- The app uses chunked uploads (10MB pieces) to handle large files
+- If it still fails, your browser might be running low on memory
+- For very large files (3GB+), USB transfer is more reliable
 
 ---
 

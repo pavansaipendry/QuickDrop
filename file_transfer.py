@@ -343,6 +343,8 @@ HTML_TEMPLATE = '''
         const progressFill = document.getElementById('progressFill');
         const progressText = document.getElementById('progressText');
         
+        const CHUNK_SIZE = 10 * 1024 * 1024; // 10MB chunks
+        
         function showToast(message) {
             const toast = document.getElementById('toast');
             toast.textContent = message;
@@ -350,44 +352,76 @@ HTML_TEMPLATE = '''
             setTimeout(() => toast.classList.remove('show'), 3000);
         }
         
-        function uploadFiles(files) {
-            if (files.length === 0) return;
-            
-            const formData = new FormData();
-            for (let file of files) {
-                formData.append('files', file);
-            }
+        function formatSize(bytes) {
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+            if (bytes < 1024 * 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+            return (bytes / (1024 * 1024 * 1024)).toFixed(2) + ' GB';
+        }
+        
+        async function uploadFileChunked(file) {
+            const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+            const fileId = Date.now() + '_' + Math.random().toString(36).substr(2, 9);
             
             progressContainer.style.display = 'block';
             progressFill.style.width = '0%';
+            progressText.textContent = `Preparing ${file.name}...`;
             
-            const xhr = new XMLHttpRequest();
-            
-            xhr.upload.addEventListener('progress', (e) => {
-                if (e.lengthComputable) {
-                    const percent = Math.round((e.loaded / e.total) * 100);
+            for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
+                const start = chunkIndex * CHUNK_SIZE;
+                const end = Math.min(start + CHUNK_SIZE, file.size);
+                const chunk = file.slice(start, end);
+                
+                const formData = new FormData();
+                formData.append('chunk', chunk);
+                formData.append('filename', file.name);
+                formData.append('fileId', fileId);
+                formData.append('chunkIndex', chunkIndex);
+                formData.append('totalChunks', totalChunks);
+                formData.append('fileSize', file.size);
+                
+                try {
+                    const response = await fetch('/upload_chunk', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error('Upload failed');
+                    }
+                    
+                    const percent = Math.round(((chunkIndex + 1) / totalChunks) * 100);
                     progressFill.style.width = percent + '%';
-                    progressText.textContent = `Uploading... ${percent}%`;
+                    progressText.textContent = `Uploading ${file.name}... ${percent}% (${formatSize(end)} / ${formatSize(file.size)})`;
+                    
+                } catch (error) {
+                    showToast('✗ Upload failed: ' + error.message);
+                    progressContainer.style.display = 'none';
+                    return false;
                 }
-            });
+            }
             
-            xhr.addEventListener('load', () => {
-                if (xhr.status === 200) {
-                    showToast('✓ Upload complete!');
-                    setTimeout(() => location.reload(), 1000);
-                } else {
-                    showToast('✗ Upload failed');
-                }
-                progressContainer.style.display = 'none';
-            });
+            return true;
+        }
+        
+        async function uploadFiles(files) {
+            if (files.length === 0) return;
             
-            xhr.addEventListener('error', () => {
-                showToast('✗ Upload failed');
-                progressContainer.style.display = 'none';
-            });
+            let successCount = 0;
             
-            xhr.open('POST', '/upload');
-            xhr.send(formData);
+            for (let file of files) {
+                const success = await uploadFileChunked(file);
+                if (success) successCount++;
+            }
+            
+            if (successCount === files.length) {
+                showToast(`✓ ${successCount} file(s) uploaded!`);
+                setTimeout(() => location.reload(), 1000);
+            } else {
+                showToast(`✗ Some uploads failed`);
+            }
+            
+            progressContainer.style.display = 'none';
         }
         
         // File input change
@@ -476,6 +510,68 @@ def upload():
             uploaded.append(filename)
     
     return jsonify({'uploaded': uploaded})
+
+# Temporary storage for chunked uploads
+CHUNK_FOLDER = os.path.join(SHARE_FOLDER, '.chunks')
+os.makedirs(CHUNK_FOLDER, exist_ok=True)
+
+@app.route('/upload_chunk', methods=['POST'])
+def upload_chunk():
+    """Handle chunked file uploads for large files"""
+    try:
+        chunk = request.files.get('chunk')
+        filename = request.form.get('filename', 'unknown')
+        file_id = request.form.get('fileId')
+        chunk_index = int(request.form.get('chunkIndex', 0))
+        total_chunks = int(request.form.get('totalChunks', 1))
+        
+        if not chunk or not file_id:
+            return jsonify({'error': 'Missing data'}), 400
+        
+        # Save chunk to temp folder
+        chunk_dir = os.path.join(CHUNK_FOLDER, file_id)
+        os.makedirs(chunk_dir, exist_ok=True)
+        chunk_path = os.path.join(chunk_dir, f'chunk_{chunk_index:06d}')
+        chunk.save(chunk_path)
+        
+        # Check if all chunks received
+        received_chunks = len([f for f in os.listdir(chunk_dir) if f.startswith('chunk_')])
+        
+        if received_chunks == total_chunks:
+            # All chunks received, reassemble file
+            safe_filename = secure_filename(filename)
+            
+            # Handle duplicate names
+            final_path = os.path.join(SHARE_FOLDER, safe_filename)
+            if os.path.exists(final_path):
+                base, ext = os.path.splitext(safe_filename)
+                counter = 1
+                while os.path.exists(final_path):
+                    safe_filename = f"{base}_{counter}{ext}"
+                    final_path = os.path.join(SHARE_FOLDER, safe_filename)
+                    counter += 1
+            
+            # Reassemble chunks
+            with open(final_path, 'wb') as outfile:
+                for i in range(total_chunks):
+                    chunk_path = os.path.join(chunk_dir, f'chunk_{i:06d}')
+                    with open(chunk_path, 'rb') as infile:
+                        while True:
+                            data = infile.read(1024 * 1024)  # Read 1MB at a time
+                            if not data:
+                                break
+                            outfile.write(data)
+            
+            # Clean up chunks
+            import shutil
+            shutil.rmtree(chunk_dir, ignore_errors=True)
+            
+            return jsonify({'status': 'complete', 'filename': safe_filename})
+        
+        return jsonify({'status': 'chunk_received', 'received': received_chunks, 'total': total_chunks})
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/download/<path:filename>')
 def download(filename):
